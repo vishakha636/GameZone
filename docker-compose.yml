@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: game_mongo
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: gamedb
+    volumes:
+      - mongo_data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    container_name: game_redis
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass redis123
+    volumes:
+      - redis_data:/data
+
+  game-server-1:
+    build: ./server
+    container_name: game_server_1
+    ports:
+      - "5001:5001"
+    environment:
+      - PORT=5001
+      - SERVER_ID=server-1
+      - MONGO_URI=mongodb://admin:password123@mongo:27017/gamedb?authSource=admin
+      - REDIS_URL=redis://:redis123@redis:6379
+      - JWT_SECRET=supersecretjwtkey123
+      - NODE_ENV=development
+      - CLIENT_URL=http://localhost:3000
+    depends_on:
+      - mongo
+      - redis
+
+  game-server-2:
+    build: ./server
+    container_name: game_server_2
+    ports:
+      - "5002:5001"
+    environment:
+      - PORT=5001
+      - SERVER_ID=server-2
+      - MONGO_URI=mongodb://admin:password123@mongo:27017/gamedb?authSource=admin
+      - REDIS_URL=redis://:redis123@redis:6379
+      - JWT_SECRET=supersecretjwtkey123
+      - NODE_ENV=development
+      - CLIENT_URL=http://localhost:3000
+    depends_on:
+      - mongo
+      - redis
+
+  nginx:
+    image: nginx:alpine
+    container_name: game_nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - game-server-1
+      - game-server-2
+
+volumes:
+  mongo_data:
+  redis_data:

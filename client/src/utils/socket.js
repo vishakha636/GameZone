@@ -4,7 +4,8 @@ let socket = null
 
 export const connectSocket = (token) => {
   if (socket?.connected) return socket
-  socket = io('/', {
+  const socketURL = 'http://192.168.14.39:80'
+  socket = io(socketURL, {
     auth: { token },
     reconnection: true,
     reconnectionAttempts: 5,

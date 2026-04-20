@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useMatchmaking } from '../hooks/useMatchmaking'
 import GAME_CONFIG from '../utils/gameConfig'
+import api from '../utils/api' 
 
 const GAME_STYLES = {
   tictactoe: {

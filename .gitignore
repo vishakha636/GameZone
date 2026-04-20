@@ -47,3 +47,7 @@ temp/
 # Package manager lock files (optional - uncomment if you prefer not to commit them)
 # package-lock.json
 # yarn.lock
+
+node_modules/
+dist/
+.env

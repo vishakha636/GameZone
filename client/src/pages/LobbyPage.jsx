@@ -126,21 +126,19 @@ export default function LobbyPage() {
   const [onlineCount, setOnlineCount] = useState(0)
 
   useEffect(() => {
-    const fetchOnlineCount = async () => {
-      try {
-        const res = await fetch('/api/players/online')
-        if (res.ok) {
-          const data = await res.json()
-          setOnlineCount(data.count)
-        }
-      } catch (err) {
-        console.error(err)
-      }
-    }
-
-    fetchOnlineCount()
-    const interval = setInterval(fetchOnlineCount, 5000)
-    return () => clearInterval(interval)
+    // Fetch immediately
+    api.get('/players/online')
+      .then(res => setOnlineCount(res.data.count))
+      .catch(() => setOnlineCount(0))
+  
+    // Then every 10 seconds
+    const t = setInterval(() => {
+      api.get('/players/online')
+        .then(res => setOnlineCount(res.data.count))
+        .catch(() => setOnlineCount(0))
+    }, 10000)
+  
+    return () => clearInterval(t)
   }, [])
 
   useEffect(() => {

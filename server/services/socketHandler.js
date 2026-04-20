@@ -17,7 +17,6 @@ const setupSocketHandlers = (io) => {
       const data = JSON.parse(message);
 
       if (channel === 'game:move') {
-        // Relay updated game state to all clients in this room on THIS server
         io.to(data.roomId).emit('game:state', {
           state:    data.state,
           lastMove: data.moveData,
@@ -26,7 +25,6 @@ const setupSocketHandlers = (io) => {
       }
 
       if (channel === 'match:created') {
-        // Tell each matched player their game is ready
         data.playerIds.forEach(playerId => {
           io.to(`player:${playerId}`).emit('match:found', {
             roomId:     data.roomId,
@@ -53,7 +51,6 @@ const setupSocketHandlers = (io) => {
     const { id: playerId, username } = socket.player;
     console.log(`[Socket] ${username} (${playerId}) connected on ${socket.id}`);
 
-    // Personal room for direct notifications
     socket.join(`player:${playerId}`);
 
     // ── Matchmaking ────────────────────────────────────────────────
@@ -66,10 +63,8 @@ const setupSocketHandlers = (io) => {
 
         const result = await joinQueue(playerId, username, gameType);
         if (result) {
-          // Match found immediately (enough players were already queued)
           socket.emit('matchmaking:matched', { roomId: result.roomId });
         } else {
-          // Emit queue status update
           const status = await getQueueStatus();
           socket.emit('queue:status', status);
         }
@@ -97,7 +92,6 @@ const setupSocketHandlers = (io) => {
         let room = getRoom(roomId);
 
         if (!room) {
-          // First player on this server to join — load match and init room
           const match = await Match.findOne({ roomId });
           if (!match) return socket.emit('error', { message: 'Room not found' });
 
@@ -122,8 +116,9 @@ const setupSocketHandlers = (io) => {
             state,
             gameType:   match.gameType,
             maxPlayers: match.maxPlayers,
-            players:    match.players,
+            players:    normalizedPlayers,
           });
+
         } else {
           socket.emit('room:joined', {
             roomId,
@@ -134,16 +129,16 @@ const setupSocketHandlers = (io) => {
           });
         }
 
-        // Notify others
+        // playerConnected FIRST, then emit player:joined with accurate count
+        const result = await playerConnected(roomId, playerId);
+
         io.to(roomId).emit('player:joined', {
           playerId,
           username,
-          connectedCount: room.connectedCount + 1,
+          connectedCount: result?.connectedCount ?? room.maxPlayers,
           maxPlayers:     room.maxPlayers,
         });
 
-        // Track connection count — start game when all N players connected
-        const result = await playerConnected(roomId, playerId);
         if (result?.allConnected) {
           io.to(roomId).emit('game:start', {
             state:   result.state,
@@ -170,7 +165,6 @@ const setupSocketHandlers = (io) => {
 
         const result = await processMove(roomId, playerId, moveData);
         if (result.error) return socket.emit('move:error', { message: result.error });
-        // State broadcast handled by Redis pub/sub above
 
       } catch (err) {
         socket.emit('move:error', { message: err.message });
@@ -188,17 +182,15 @@ const setupSocketHandlers = (io) => {
       });
     });
 
-    // ── Ping (keep-alive) ──────────────────────────────────────────
+    // ── Ping ───────────────────────────────────────────────────────
     socket.on('ping', () => socket.emit('pong'));
 
     // ── Disconnect ─────────────────────────────────────────────────
     socket.on('disconnect', async (reason) => {
       console.log(`[Socket] ${username} disconnected: ${reason}`);
 
-      // Leave all matchmaking queues
       await leaveQueue(playerId);
 
-      // Notify game rooms this player was in
       const rooms = [...socket.rooms].filter(
         r => r !== socket.id && r !== `player:${playerId}`
       );
@@ -207,7 +199,7 @@ const setupSocketHandlers = (io) => {
       }
     });
 
-  }); // end io.on('connection')
+  });
 };
 
 module.exports = setupSocketHandlers;

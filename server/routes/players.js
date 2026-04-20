@@ -44,5 +44,14 @@ router.put('/profile', authMiddleware, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// GET /api/players/online
+router.get('/online', async (req, res) => {
+  try {
+    const count = await Player.countDocuments({ status: 'online' })
+    res.json({ count })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
 
 module.exports = router;

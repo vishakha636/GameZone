@@ -3,6 +3,16 @@ const Player = require('../models/Player');
 const { authMiddleware } = require('../middleware/auth');
 const { getCache }       = require('../config/redis');
 
+// GET /api/players/online  ← must be BEFORE /:id
+router.get('/online', async (req, res) => {
+  try {
+    const count = await Player.countDocuments({ status: 'online' })
+    res.json({ count })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // GET /api/players/leaderboard
 router.get('/leaderboard', async (req, res) => {
   try {
@@ -21,7 +31,7 @@ router.get('/leaderboard', async (req, res) => {
   }
 });
 
-// GET /api/players/:id
+// GET /api/players/:id  ← dynamic route always goes last
 router.get('/:id', async (req, res) => {
   try {
     const player = await Player.findById(req.params.id).select('-password');
@@ -44,14 +54,5 @@ router.put('/profile', authMiddleware, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-// GET /api/players/online
-router.get('/online', async (req, res) => {
-  try {
-    const count = await Player.countDocuments({ status: 'online' })
-    res.json({ count })
-  } catch (err) {
-    res.status(500).json({ error: err.message })
-  }
-})
 
 module.exports = router;
